@@ -4,44 +4,22 @@
 <meta charset="UTF-8">
 <title>Suivi Production</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background:#f4f4f4;
-  padding:20px;
-}
-.box {
-  background:white;
-  padding:15px;
-  border-radius:8px;
-  max-width:520px;
-  margin:15px auto;
-}
-input {
-  width:95%;
-  padding:12px;
-  font-size:16px;
-}
-button {
-  padding:8px 12px;
-  margin-left:8px;
-}
-.step {
-  margin:6px 0;
-}
+body { font-family: Arial; background:#f4f4f4; padding:20px; }
+.box { background:#fff; padding:15px; border-radius:8px; max-width:520px; margin:15px auto; }
+input { width:95%; padding:12px; font-size:16px; }
+.step { margin:6px 0; }
 .ok { color:green; }
 .todo { color:#888; }
 .hidden { display:none; }
-a { text-decoration:none; }
 </style>
 </head>
 
 <body>
 
-<h2>📦 Suivi de production</h2>
+<h2>📦 Suivi production</h2>
 
 <div class="box">
   <input id="codeInput" placeholder="Scanner ou taper le code">
@@ -51,76 +29,79 @@ a { text-decoration:none; }
   <h3 id="projectTitle"></h3>
   <p id="clientName"></p>
 
-  <h4>📂 Dossier projet</h4>
-  <div id="folderLink"></div>
+  <a id="folderLink" target="_blank">📁 Ouvrir dossier projet</a>
 
   <h4>📌 Avancement</h4>
   <div id="steps"></div>
 </div>
 
 <div class="box">
-  <div id="reader" style="width:100%;"></div>
+  <div id="reader"></div>
 </div>
 
 <script>
 // ================= CONFIG =================
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSbYLrGQEm2zACNACmukjohMBGn3im1fS5SZD0jjCg6m7sd6iD3XIY22a6qRJcrDwHv-WqvLYwxCmR/pub?gid=0&single=true&output=tsv";
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSbYLrGQEm2zACNACmukjohMBGn3im1fS5SZD0jjCg6m7sd6iD3XIY22a6qRJcrDwHv-WqvLYwxCmR/pub?gid=0&single=true&output=csv";
 // =========================================
 
 let rows = [];
-let currentRow = null;
 
-// 👤 prénom (1 seule fois)
-let userName = localStorage.getItem("prenom");
-if (!userName) {
-  userName = prompt("Quel est ton prénom ?");
-  localStorage.setItem("prenom", userName);
+// 🔧 fonction NETTOYAGE (clé du problème)
+function clean(text) {
+  return text
+    .toString()
+    .replace(/"/g,"")
+    .replace(/\s+/g,"")
+    .toUpperCase();
+}
+
+// 👤 prénom (1 fois)
+let user = localStorage.getItem("prenom");
+if (!user) {
+  user = prompt("Ton prénom ?");
+  localStorage.setItem("prenom", user);
 }
 
 // 📥 chargement CSV
 fetch(CSV_URL + "&_=" + Date.now())
   .then(r => r.text())
   .then(text => {
-    const lines = text.trim().split("\n");
-    const sep = lines[0].includes(";") ? ";" : ",";
-    rows = lines.slice(1).map(l =>
-      l.split(sep).map(c => c.replace(/"/g,"").trim())
+    const sep = text.includes(";") ? ";" : ",";
+    rows = text.trim().split("\n").slice(1).map(l =>
+      l.split(sep).map(c => c.trim())
     );
+    console.log("CSV chargé :", rows.length, "lignes");
   });
 
 // 🔍 recherche code
 function searchCode(value) {
-  if (!value) value = codeInput.value;
-  const code = value.trim();
-  const row = rows.find(r => r[0] === code);
+  const scanned = clean(value || codeInput.value);
+  console.log("Code scanné :", scanned);
+
+  const row = rows.find(r => clean(r[0]) === scanned);
 
   if (!row) {
     alert("❌ Code inconnu");
     return;
   }
 
-  currentRow = row;
-  displayProject(row);
+  display(row);
   codeInput.value = "";
 }
 
-// ⌨️ zapette / clavier
+// ⌨️ zapette
 codeInput.addEventListener("keydown", e => {
   if (e.key === "Enter") searchCode();
 });
 
-// 📄 affichage projet
-function displayProject(r) {
+// 📄 affichage
+function display(r) {
   projectBox.classList.remove("hidden");
-
   projectTitle.textContent = r[2];
   clientName.textContent = "Client : " + r[1];
+  folderLink.href = r[3];
 
-  folderLink.innerHTML = `
-    <a href="${r[3]}" target="_blank">📁 Ouvrir le dossier Drive</a>
-  `;
-
-  const stepNames = [
+  const stepsNames = [
     "RECEPTION FICHIER",
     "ATTENTE VALIDATION",
     "IMPRESSION",
@@ -130,40 +111,28 @@ function displayProject(r) {
   ];
 
   steps.innerHTML = "";
-  stepNames.forEach((name, i) => {
-    const val = r[4+i];
-    const done = val && val.includes("✅");
+  stepsNames.forEach((n,i)=>{
+    const v = r[4+i];
     steps.innerHTML += `
-      <div class="step ${done ? "ok":"todo"}">
-        ${name} : ${val || "⏳"}
-        <button onclick="validateStep(${i})">Valider</button>
-      </div>
-    `;
+      <div class="step ${v ? "ok":"todo"}">
+        ${n} : ${v || "⏳"}
+      </div>`;
   });
 }
 
-// ✅ validation (locale V1)
-function validateStep(index) {
-  const now = new Date().toLocaleString();
-  currentRow[4+index] = `✅ ${userName} – ${now}`;
-  displayProject(currentRow);
-  alert("Étape validée (CSV en lecture seule pour l’instant)");
-}
-
 // 📷 caméra (1D + QR)
-const html5QrCode = new Html5Qrcode("reader");
-html5QrCode.start(
+new Html5Qrcode("reader").start(
   { facingMode:"environment" },
   {
-    fps: 6,
-    qrbox: { width: 320, height: 160 },
-    formatsToSupport: [
+    fps:6,
+    qrbox:{ width:320, height:160 },
+    formatsToSupport:[
       Html5QrcodeSupportedFormats.CODE_128,
       Html5QrcodeSupportedFormats.EAN_13,
       Html5QrcodeSupportedFormats.QR_CODE
     ]
   },
-  decodedText => searchCode(decodedText)
+  text => searchCode(text)
 );
 </script>
 
