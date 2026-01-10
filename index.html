@@ -4,22 +4,40 @@
 <meta charset="UTF-8">
 <title>Suivi Production</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-body { font-family: Arial; background:#f4f4f4; padding:20px; }
-.box { background:#fff; padding:15px; border-radius:8px; max-width:520px; margin:15px auto; }
-input { width:95%; padding:12px; font-size:16px; }
-.step { margin:6px 0; }
+body {
+  font-family: Arial, sans-serif;
+  background:#f4f4f4;
+  padding:20px;
+}
+.box {
+  background:#fff;
+  padding:15px;
+  border-radius:8px;
+  max-width:520px;
+  margin:15px auto;
+}
+input {
+  width:95%;
+  padding:12px;
+  font-size:16px;
+}
+.step {
+  margin:6px 0;
+}
 .ok { color:green; }
 .todo { color:#888; }
 .hidden { display:none; }
+a { text-decoration:none; display:block; margin:6px 0; }
 </style>
 </head>
 
 <body>
 
-<h2>📦 Suivi production</h2>
+<h2>📦 Suivi de production</h2>
 
 <div class="box">
   <input id="codeInput" placeholder="Scanner ou taper le code">
@@ -29,7 +47,12 @@ input { width:95%; padding:12px; font-size:16px; }
   <h3 id="projectTitle"></h3>
   <p id="clientName"></p>
 
-  <a id="folderLink" target="_blank">📁 Ouvrir dossier projet</a>
+  <!-- IMAGE PREVIEW -->
+  <img id="previewImage"
+       style="max-width:100%;margin-top:10px;border-radius:6px;
+              cursor:pointer;display:none;">
+
+  <a id="folderLink" target="_blank">📁 Ouvrir le dossier Drive</a>
 
   <h4>📌 Avancement</h4>
   <div id="steps"></div>
@@ -39,30 +62,40 @@ input { width:95%; padding:12px; font-size:16px; }
   <div id="reader"></div>
 </div>
 
+<!-- IMAGE PLEIN ÉCRAN -->
+<div id="imageModal"
+     style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+            background:rgba(0,0,0,0.9);z-index:9999;"
+     onclick="closeImage()">
+  <img id="modalImage"
+       style="max-width:95%;max-height:95%;margin:auto;display:block;
+              position:absolute;top:0;bottom:0;left:0;right:0;">
+</div>
+
 <script>
 // ================= CONFIG =================
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSbYLrGQEm2zACNACmukjohMBGn3im1fS5SZD0jjCg6m7sd6iD3XIY22a6qRJcrDwHv-WqvLYwxCmR/pub?gid=0&single=true&output=csv";
 // =========================================
 
 let rows = [];
+let currentRow = null;
 
-// 🔧 fonction NETTOYAGE (clé du problème)
-function clean(text) {
-  return text
-    .toString()
+// 🔧 Nettoyage code (IMPORTANT)
+function clean(value) {
+  return String(value)
     .replace(/"/g,"")
     .replace(/\s+/g,"")
-    .toUpperCase();
+    .trim();
 }
 
-// 👤 prénom (1 fois)
+// 👤 Prénom (1 seule fois)
 let user = localStorage.getItem("prenom");
 if (!user) {
-  user = prompt("Ton prénom ?");
+  user = prompt("Quel est ton prénom ?");
   localStorage.setItem("prenom", user);
 }
 
-// 📥 chargement CSV
+// 📥 Chargement CSV
 fetch(CSV_URL + "&_=" + Date.now())
   .then(r => r.text())
   .then(text => {
@@ -70,14 +103,11 @@ fetch(CSV_URL + "&_=" + Date.now())
     rows = text.trim().split("\n").slice(1).map(l =>
       l.split(sep).map(c => c.trim())
     );
-    console.log("CSV chargé :", rows.length, "lignes");
   });
 
-// 🔍 recherche code
+// 🔍 Recherche code
 function searchCode(value) {
   const scanned = clean(value || codeInput.value);
-  console.log("Code scanné :", scanned);
-
   const row = rows.find(r => clean(r[0]) === scanned);
 
   if (!row) {
@@ -85,21 +115,33 @@ function searchCode(value) {
     return;
   }
 
+  currentRow = row;
   display(row);
   codeInput.value = "";
 }
 
-// ⌨️ zapette
+// ⌨️ Zapette / clavier
 codeInput.addEventListener("keydown", e => {
   if (e.key === "Enter") searchCode();
 });
 
-// 📄 affichage
+// 📄 Affichage projet
 function display(r) {
   projectBox.classList.remove("hidden");
+
   projectTitle.textContent = r[2];
   clientName.textContent = "Client : " + r[1];
   folderLink.href = r[3];
+
+  // 🖼️ Image
+  const img = document.getElementById("previewImage");
+  if (r[10]) {
+    img.src = r[10];
+    img.style.display = "block";
+    img.onclick = () => openImage(r[10]);
+  } else {
+    img.style.display = "none";
+  }
 
   const stepsNames = [
     "RECEPTION FICHIER",
@@ -120,7 +162,16 @@ function display(r) {
   });
 }
 
-// 📷 caméra (1D + QR)
+// 🖼️ Plein écran image
+function openImage(src) {
+  modalImage.src = src;
+  imageModal.style.display = "block";
+}
+function closeImage() {
+  imageModal.style.display = "none";
+}
+
+// 📷 Caméra (1D + QR)
 new Html5Qrcode("reader").start(
   { facingMode:"environment" },
   {
