@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Suivi Production</title>
+<title>📂 Consultation documents</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://unpkg.com/html5-qrcode"></script>
@@ -10,181 +10,134 @@
 <style>
 body {
   font-family: Arial, sans-serif;
-  background:#f4f4f4;
-  padding:20px;
+  background: #f5f5f5;
+  text-align: center;
+  padding: 20px;
 }
 .box {
-  background:#fff;
-  padding:15px;
-  border-radius:8px;
-  max-width:520px;
-  margin:15px auto;
+  background: #fff;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 15px auto;
+  max-width: 420px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 input {
-  width:95%;
-  padding:12px;
-  font-size:16px;
+  font-size: 18px;
+  padding: 10px;
+  width: 90%;
+  max-width: 320px;
 }
-.step {
-  margin:6px 0;
+button {
+  font-size: 16px;
+  padding: 8px 15px;
+  margin-top: 10px;
 }
-.ok { color:green; }
-.todo { color:#888; }
-.hidden { display:none; }
-a { text-decoration:none; display:block; margin:6px 0; }
+img {
+  max-width: 240px;
+  margin: 15px auto;
+  display: block;
+}
+#result p {
+  margin: 4px 0;
+}
 </style>
 </head>
 
 <body>
 
-<h2>📦 Suivi de production</h2>
+<h2>📦 Consultation documents</h2>
 
 <div class="box">
-  <input id="codeInput" placeholder="Scanner ou taper le code">
-</div>
-
-<div class="box hidden" id="projectBox">
-  <h3 id="projectTitle"></h3>
-  <p id="clientName"></p>
-
-  <!-- IMAGE PREVIEW -->
-  <img id="previewImage"
-       style="max-width:100%;margin-top:10px;border-radius:6px;
-              cursor:pointer;display:none;">
-
-  <a id="folderLink" target="_blank">📁 Ouvrir le dossier Drive</a>
-
-  <h4>📌 Avancement</h4>
-  <div id="steps"></div>
+  <h3>⌨️ Scan code-barres (zapette / clavier)</h3>
+  <input id="codeInput" placeholder="Scannez le code ici" autofocus>
+  <br>
+  <button onclick="searchCode()">Valider</button>
 </div>
 
 <div class="box">
-  <div id="reader"></div>
+  <h3>📷 Scan caméra (mobile)</h3>
+  <div id="reader" style="width:300px;margin:auto;"></div>
 </div>
 
-<!-- IMAGE PLEIN ÉCRAN -->
-<div id="imageModal"
-     style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
-            background:rgba(0,0,0,0.9);z-index:9999;"
-     onclick="closeImage()">
-  <img id="modalImage"
-       style="max-width:95%;max-height:95%;margin:auto;display:block;
-              position:absolute;top:0;bottom:0;left:0;right:0;">
-</div>
+<div id="result"></div>
 
 <script>
-// ================= CONFIG =================
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSbYLrGQEm2zACNACmukjohMBGn3im1fS5SZD0jjCg6m7sd6iD3XIY22a6qRJcrDwHv-WqvLYwxCmR/pub?gid=0&single=true&output=csv";
-// =========================================
+/* 🔗 URL DE TON APPS SCRIPT (OBLIGATOIRE) */
+const apiUrl = "https://script.google.com/macros/s/AKfycbyRAkdjsSjzTNcQQyXsDcCymqG-5yE1ALlkcUI5QMOzWVWTG9q72L8TjSp31MGqFvlCLQ/exec";
 
-let rows = [];
-let currentRow = null;
+async function searchCode(code) {
+  if (!code) {
+    code = document.getElementById("codeInput").value.trim();
+  }
+  if (!code) return;
 
-// 🔧 Nettoyage code (IMPORTANT)
-function clean(value) {
-  return String(value)
-    .replace(/"/g,"")
-    .replace(/\s+/g,"")
-    .trim();
-}
+  document.getElementById("result").innerHTML = "⏳ Recherche…";
 
-// 👤 Prénom (1 seule fois)
-let user = localStorage.getItem("prenom");
-if (!user) {
-  user = prompt("Quel est ton prénom ?");
-  localStorage.setItem("prenom", user);
-}
+  try {
+    const res = await fetch(apiUrl + "?id=" + encodeURIComponent(code));
+    const data = await res.json();
 
-// 📥 Chargement CSV
-fetch(CSV_URL + "&_=" + Date.now())
-  .then(r => r.text())
-  .then(text => {
-    const sep = text.includes(";") ? ";" : ",";
-    rows = text.trim().split("\n").slice(1).map(l =>
-      l.split(sep).map(c => c.trim())
-    );
-  });
+    if (!data || data.error) {
+      document.getElementById("result").innerHTML = "❌ Code inconnu";
+      return;
+    }
 
-// 🔍 Recherche code
-function searchCode(value) {
-  const scanned = clean(value || codeInput.value);
-  const row = rows.find(r => clean(r[0]) === scanned);
+    displayResult(data);
 
-  if (!row) {
-    alert("❌ Code inconnu");
-    return;
+  } catch (e) {
+    document.getElementById("result").innerHTML = "⚠️ Erreur de connexion";
+    console.error(e);
   }
 
-  currentRow = row;
-  display(row);
-  codeInput.value = "";
+  document.getElementById("codeInput").value = "";
+  document.getElementById("codeInput").focus();
 }
 
-// ⌨️ Zapette / clavier
-codeInput.addEventListener("keydown", e => {
+function displayResult(d) {
+  document.getElementById("result").innerHTML = `
+    <div class="box">
+      <h3>${d.client} – ${d.projet}</h3>
+
+      <p><b>Type :</b> ${d.type}</p>
+      <p><b>Intitulé :</b> ${d.intitule}</p>
+      <p><b>Taille :</b> ${d.taille}</p>
+      <p><b>Matière :</b> ${d.matiere}</p>
+      <p><b>Quantité :</b> ${d.quantite}</p>
+      <p><b>Finitions :</b> ${d.finitions}</p>
+
+      ${d.image ? `<img src="${d.image}" alt="Aperçu visuel">` : ""}
+
+      <br>
+      <a href="${d.drive}" target="_blank">
+        <button>📂 Ouvrir le dossier</button>
+      </a>
+    </div>
+  `;
+}
+
+/* ⌨️ ENTRÉE AUTO (ZAPETTE) */
+document.getElementById("codeInput").addEventListener("keydown", e => {
   if (e.key === "Enter") searchCode();
 });
 
-// 📄 Affichage projet
-function display(r) {
-  projectBox.classList.remove("hidden");
-
-  projectTitle.textContent = r[2];
-  clientName.textContent = "Client : " + r[1];
-  folderLink.href = r[3];
-
-  // 🖼️ Image
-  const img = document.getElementById("previewImage");
-  if (r[10]) {
-    img.src = r[10];
-    img.style.display = "block";
-    img.onclick = () => openImage(r[10]);
-  } else {
-    img.style.display = "none";
-  }
-
-  const stepsNames = [
-    "RECEPTION FICHIER",
-    "ATTENTE VALIDATION",
-    "IMPRESSION",
-    "ATELIER",
-    "CONDITIONNEMENT",
-    "POSE / LIVRAISON"
-  ];
-
-  steps.innerHTML = "";
-  stepsNames.forEach((n,i)=>{
-    const v = r[4+i];
-    steps.innerHTML += `
-      <div class="step ${v ? "ok":"todo"}">
-        ${n} : ${v || "⏳"}
-      </div>`;
-  });
+/* 📷 SCAN CAMÉRA MOBILE */
+if (/iPhone|Android/i.test(navigator.userAgent)) {
+  new Html5Qrcode("reader").start(
+    { facingMode: "environment" },
+    {
+      fps: 6,
+      qrbox: { width: 280, height: 120 },
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8
+      ]
+    },
+    searchCode
+  );
 }
-
-// 🖼️ Plein écran image
-function openImage(src) {
-  modalImage.src = src;
-  imageModal.style.display = "block";
-}
-function closeImage() {
-  imageModal.style.display = "none";
-}
-
-// 📷 Caméra (1D + QR)
-new Html5Qrcode("reader").start(
-  { facingMode:"environment" },
-  {
-    fps:6,
-    qrbox:{ width:320, height:160 },
-    formatsToSupport:[
-      Html5QrcodeSupportedFormats.CODE_128,
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.QR_CODE
-    ]
-  },
-  text => searchCode(text)
-);
 </script>
 
 </body>
