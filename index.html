@@ -4,40 +4,15 @@
 <meta charset="UTF-8">
 <title>Consultation documents</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  padding: 20px;
-}
-
-input {
-  font-size: 18px;
-  padding: 10px;
-  width: 80%;
-  max-width: 320px;
-}
-
-button {
-  font-size: 16px;
-  padding: 8px 15px;
-  margin-top: 10px;
-}
-
-.box {
-  border: 1px solid #ccc;
-  padding: 15px;
-  margin: 15px auto;
-  max-width: 400px;
-}
-
-img {
-  max-width: 100%;
-  margin-top: 10px;
-}
+body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+input { font-size: 18px; padding: 10px; width: 80%; max-width: 320px; }
+button { font-size: 16px; padding: 8px 15px; margin-top: 10px; }
+.box { border: 1px solid #ccc; padding: 15px; margin: 15px auto; max-width: 400px; }
+img { max-width: 100%; margin-top: 10px; display: block; }
+.error { color: red; font-weight: bold; }
 </style>
 </head>
 
@@ -62,51 +37,51 @@ img {
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbziwMzMRA4rrZApjzJ39sEI7NPXkGE1z0MODoUMqKOdp3z6El5p_c0u-D5IMJVNtw3SMQ/exec";
 
+// Fonction principale
 function search(code) {
-  if (!code) {
-    code = document.getElementById("codeInput").value.trim();
-  }
-
+  if (!code) code = document.getElementById("codeInput").value.trim();
   if (!code) return;
 
-  fetch(API_URL + "?id=" + encodeURIComponent(code))
-    .then(r => r.json())
+  fetch(API_URL + "?id=" + encodeURIComponent(code), { method: "GET", mode: "cors" })
+    .then(res => res.json())
     .then(data => {
       if (data.error) {
-        document.getElementById("result").innerHTML = "❌ " + data.error;
+        document.getElementById("result").innerHTML = "<p class='error'>❌ " + data.error + "</p>";
         return;
       }
-
-      document.getElementById("result").innerHTML = `
-        <h3>${data.client} – ${data.intitule}</h3>
-        <p><b>Projet :</b> ${data.projet}</p>
-        <p><b>Type :</b> ${data.type}</p>
-        <p><b>Taille :</b> ${data.taille}</p>
-        <p><b>Matière :</b> ${data.matiere}</p>
-        <p><b>Quantité :</b> ${data.quantite}</p>
-        <p><b>Finitions :</b> ${data.finitions}</p>
-
-        ${data.image ? `<img src="${data.image}">` : ""}
-
-        <br><br>
-        ${data.drive ? `<a href="${data.drive}" target="_blank"><button>📂 Ouvrir dossier</button></a>` : ""}
-      `;
+      displayResult(data);
     })
     .catch(err => {
-      document.getElementById("result").innerHTML = "❌ Erreur de connexion API";
       console.error(err);
+      document.getElementById("result").innerHTML = "<p class='error'>❌ Erreur de connexion API</p>";
     });
 
   document.getElementById("codeInput").value = "";
   document.getElementById("codeInput").focus();
 }
 
-/* Entrée clavier */
+// Affichage des infos
+function displayResult(d) {
+  document.getElementById("result").innerHTML = `
+    <h3>${d.client} – ${d.intitule}</h3>
+    <p><b>Projet :</b> ${d.projet}</p>
+    <p><b>Type :</b> ${d.type}</p>
+    <p><b>Taille :</b> ${d.taille}</p>
+    <p><b>Matière :</b> ${d.matiere}</p>
+    <p><b>Quantité :</b> ${d.quantite}</p>
+    <p><b>Finitions :</b> ${d.finitions}</p>
+    <p><b>Date de chargement :</b> ${d.date}</p>
+    ${d.image ? `<img src="${d.image}" alt="Visuel">` : ""}
+    ${d.drive ? `<br><a href="${d.drive}" target="_blank"><button>📂 Ouvrir le dossier</button></a>` : ""}
+  `;
+}
+
+// Entrée clavier zapette
 document.getElementById("codeInput").addEventListener("keydown", e => {
   if (e.key === "Enter") search();
 });
 
-/* Scan caméra */
+// Scan caméra pour mobile
 if (/Android|iPhone/i.test(navigator.userAgent)) {
   new Html5Qrcode("reader").start(
     { facingMode: "environment" },
