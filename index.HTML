@@ -4,55 +4,102 @@
 <meta charset="UTF-8">
 <title>Scanner Documents</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <script src="https://unpkg.com/html5-qrcode"></script>
+
 <style>
 body { font-family: Arial; text-align: center; padding: 20px; }
 #result { margin-top: 20px; }
-img { max-width: 200px; margin: 10px auto; }
-button { font-size: 18px; padding: 10px 20px; }
+img { max-width: 300px; margin: 10px auto; display:block; }
+button { font-size: 16px; padding: 8px 15px; margin-top: 10px; }
+input { font-size: 18px; padding: 10px; width: 80%; max-width: 300px; }
+.box { border: 1px solid #ccc; padding: 15px; margin: 15px auto; max-width: 400px; }
+.error { color:red; font-weight:bold; }
 </style>
 </head>
+
 <body>
 
-<h2>📂 Scanner un document</h2>
+<h2>📂 Consultation documents</h2>
+
+<div class="box">
+<h3>⌨️ Scan code-barres</h3>
+<input id="codeInput" placeholder="Scanner ou saisir l’ID">
+<br>
+<button onclick="searchCode()">Valider</button>
+</div>
+
+<div class="box">
+<h3>📷 Scan caméra</h3>
 <div id="reader" style="width:300px;margin:auto;"></div>
+</div>
+
 <div id="result"></div>
 
 <script>
-const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSbYLrGQEm2zACNACmukjohMBGn3im1fS5SZD0jjCg6m7sd6iD3XIY22a6qRJcrDwHv-WqvLYwxCmR/pub?gid=0&single=true&output=csv";
+const apiUrl = "https://script.google.com/macros/s/AKfycbwD3sdK2UxxV7jfcdRs5s3U_Iu3eS181XvczQorZ1VfbIF68D5UZwOP8AUdTAkXfww6qw/exec";
 
-let data = [];
+function searchCode(code) {
+  if (!code) code = document.getElementById("codeInput").value.trim();
+  if (!code) return;
 
-fetch(csvUrl)
-.then(res => res.text())
-.then(text => {
-  data = text.split("\n").slice(1).map(l => l.split(","));
-});
+  fetch(apiUrl + "?id=" + encodeURIComponent(code))
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        document.getElementById("result").innerHTML =
+          "<p class='error'>❌ " + data.error + "</p>";
+        return;
+      }
+      displayResult(data);
+    })
+    .catch(() => {
+      document.getElementById("result").innerHTML =
+        "<p class='error'>Erreur de connexion</p>";
+    });
 
-function onScanSuccess(code) {
-  const row = data.find(r => r[0] === code);
-  if (!row) {
-    document.getElementById("result").innerHTML = "❌ Code inconnu";
-    return;
-  }
+  document.getElementById("codeInput").value = "";
+  document.getElementById("codeInput").focus();
+}
 
+function displayResult(d) {
   document.getElementById("result").innerHTML = `
-    <h3>${row[1]}</h3>
-    <p><b>Dossier :</b> ${row[2]}</p>
-    <p><b>Statut :</b> ${row[3]}</p>
-    <img src="${row[5]}">
-    <br><br>
-    <a href="${row[4]}" target="_blank">
-      <button>📂 Ouvrir</button>
-    </a>
+    <h3>${d.client} – ${d.projet}</h3>
+
+    ${d.image ? `<img src="${d.image}">` : ""}
+
+    <p><b>Type :</b> ${d.type}</p>
+    <p><b>Intitulé :</b> ${d.intitule}</p>
+    <p><b>Taille :</b> ${d.taille}</p>
+    <p><b>Matière :</b> ${d.matiere}</p>
+    <p><b>Quantité :</b> ${d.quantite}</p>
+    <p><b>Finitions :</b> ${d.finitions}</p>
+    <p><b>Date :</b> ${d.date}</p>
+
+    ${d.drive ? `
+      <a href="${d.drive}" target="_blank">
+        <button>📂 Ouvrir le dossier</button>
+      </a>
+    ` : ""}
   `;
 }
 
-new Html5Qrcode("reader").start(
-  { facingMode: "environment" },
-  { fps: 10, qrbox: 250 },
-  onScanSuccess
-);
+// Entrée clavier (zapette)
+document.getElementById("codeInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") searchCode();
+});
+
+// Caméra (mobile)
+if (/iPhone|Android/i.test(navigator.userAgent)) {
+  new Html5Qrcode("reader").start(
+    { facingMode: "environment" },
+    {
+      fps: 5,
+      qrbox: { width: 250, height: 120 }
+    },
+    searchCode
+  );
+}
 </script>
 
 </body>
