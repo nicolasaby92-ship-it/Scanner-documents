@@ -2,93 +2,61 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>📂 Consultation documents</title>
+<title>Scanner Documents</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f5f5f5;
-  text-align: center;
-  padding: 20px;
-}
-.box {
-  background: #fff;
-  border-radius: 8px;
-  padding: 15px;
-  margin: 15px auto;
-  max-width: 420px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-input {
-  font-size: 18px;
-  padding: 10px;
-  width: 90%;
-  max-width: 320px;
-}
-button {
-  font-size: 16px;
-  padding: 8px 15px;
-  margin-top: 10px;
-}
-img {
-  max-width: 240px;
-  margin: 15px auto;
-  display: block;
-}
-#result p {
-  margin: 4px 0;
-}
+body { font-family: Arial; text-align: center; padding: 20px; }
+#result { margin-top: 20px; }
+img { max-width: 300px; margin: 10px auto; display:block; }
+button { font-size: 16px; padding: 8px 15px; margin-top: 10px; }
+input { font-size: 18px; padding: 10px; width: 80%; max-width: 300px; }
+.box { border: 1px solid #ccc; padding: 15px; margin: 15px auto; max-width: 400px; }
+.error { color:red; font-weight:bold; }
 </style>
 </head>
 
 <body>
 
-<h2>📦 Consultation documents</h2>
+<h2>📂 Consultation documents</h2>
 
 <div class="box">
-  <h3>⌨️ Scan code-barres (zapette / clavier)</h3>
-  <input id="codeInput" placeholder="Scannez le code ici" autofocus>
-  <br>
-  <button onclick="searchCode()">Valider</button>
+<h3>⌨️ Scan code-barres</h3>
+<input id="codeInput" placeholder="Scanner ou saisir l’ID">
+<br>
+<button onclick="searchCode()">Valider</button>
 </div>
 
 <div class="box">
-  <h3>📷 Scan caméra (mobile)</h3>
-  <div id="reader" style="width:300px;margin:auto;"></div>
+<h3>📷 Scan caméra</h3>
+<div id="reader" style="width:300px;margin:auto;"></div>
 </div>
 
 <div id="result"></div>
 
 <script>
-/* 🔗 URL DE TON APPS SCRIPT (OBLIGATOIRE) */
-const apiUrl = "https://script.google.com/macros/s/AKfycbzS8ItL-wSoAm2--Musn4wImQLwZGT9lGi8BM60e1kVxnSkK4daPlQ3XJqhpBnQ3q0JQg/exec";
+const apiUrl = "https://script.google.com/macros/s/AKfycbwD3sdK2UxxV7jfcdRs5s3U_Iu3eS181XvczQorZ1VfbIF68D5UZwOP8AUdTAkXfww6qw/exec";
 
-async function searchCode(code) {
-  if (!code) {
-    code = document.getElementById("codeInput").value.trim();
-  }
+function searchCode(code) {
+  if (!code) code = document.getElementById("codeInput").value.trim();
   if (!code) return;
 
-  document.getElementById("result").innerHTML = "⏳ Recherche…";
-
-  try {
-    const res = await fetch(apiUrl + "?id=" + encodeURIComponent(code));
-    const data = await res.json();
-
-    if (!data || data.error) {
-      document.getElementById("result").innerHTML = "❌ Code inconnu";
-      return;
-    }
-
-    displayResult(data);
-
-  } catch (e) {
-    document.getElementById("result").innerHTML = "⚠️ Erreur de connexion";
-    console.error(e);
-  }
+  fetch(apiUrl + "?id=" + encodeURIComponent(code))
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        document.getElementById("result").innerHTML =
+          "<p class='error'>❌ " + data.error + "</p>";
+        return;
+      }
+      displayResult(data);
+    })
+    .catch(() => {
+      document.getElementById("result").innerHTML =
+        "<p class='error'>Erreur de connexion</p>";
+    });
 
   document.getElementById("codeInput").value = "";
   document.getElementById("codeInput").focus();
@@ -96,44 +64,38 @@ async function searchCode(code) {
 
 function displayResult(d) {
   document.getElementById("result").innerHTML = `
-    <div class="box">
-      <h3>${d.client} – ${d.projet}</h3>
+    <h3>${d.client} – ${d.projet}</h3>
 
-      <p><b>Type :</b> ${d.type}</p>
-      <p><b>Intitulé :</b> ${d.intitule}</p>
-      <p><b>Taille :</b> ${d.taille}</p>
-      <p><b>Matière :</b> ${d.matiere}</p>
-      <p><b>Quantité :</b> ${d.quantite}</p>
-      <p><b>Finitions :</b> ${d.finitions}</p>
+    ${d.image ? `<img src="${d.image}">` : ""}
 
-      ${d.image ? `<img src="${d.image}" alt="Aperçu visuel">` : ""}
+    <p><b>Type :</b> ${d.type}</p>
+    <p><b>Intitulé :</b> ${d.intitule}</p>
+    <p><b>Taille :</b> ${d.taille}</p>
+    <p><b>Matière :</b> ${d.matiere}</p>
+    <p><b>Quantité :</b> ${d.quantite}</p>
+    <p><b>Finitions :</b> ${d.finitions}</p>
+    <p><b>Date :</b> ${d.date}</p>
 
-      <br>
+    ${d.drive ? `
       <a href="${d.drive}" target="_blank">
         <button>📂 Ouvrir le dossier</button>
       </a>
-    </div>
+    ` : ""}
   `;
 }
 
-/* ⌨️ ENTRÉE AUTO (ZAPETTE) */
+// Entrée clavier (zapette)
 document.getElementById("codeInput").addEventListener("keydown", e => {
   if (e.key === "Enter") searchCode();
 });
 
-/* 📷 SCAN CAMÉRA MOBILE */
+// Caméra (mobile)
 if (/iPhone|Android/i.test(navigator.userAgent)) {
   new Html5Qrcode("reader").start(
     { facingMode: "environment" },
     {
-      fps: 6,
-      qrbox: { width: 280, height: 120 },
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.QR_CODE,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8
-      ]
+      fps: 5,
+      qrbox: { width: 250, height: 120 }
     },
     searchCode
   );
