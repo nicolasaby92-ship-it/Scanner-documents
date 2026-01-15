@@ -1,106 +1,67 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<title>Scanner Documents</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script src="https://unpkg.com/html5-qrcode"></script>
-
-<style>
-body { font-family: Arial; text-align: center; padding: 20px; }
-#result { margin-top: 20px; }
-img { max-width: 300px; margin: 10px auto; display:block; }
-button { font-size: 16px; padding: 8px 15px; margin-top: 10px; }
-input { font-size: 18px; padding: 10px; width: 80%; max-width: 300px; }
-.box { border: 1px solid #ccc; padding: 15px; margin: 15px auto; max-width: 400px; }
-.error { color:red; font-weight:bold; }
-</style>
-</head>
-
-<body>
-
-<h2>📂 Consultation documents</h2>
-
-<div class="box">
-<h3>⌨️ Scan code-barres</h3>
-<input id="codeInput" placeholder="Scanner ou saisir l’ID">
-<br>
-<button onclick="searchCode()">Valider</button>
-</div>
-
-<div class="box">
-<h3>📷 Scan caméra</h3>
-<div id="reader" style="width:300px;margin:auto;"></div>
-</div>
-
-<div id="result"></div>
-
 <script>
 const apiUrl = "https://script.google.com/macros/s/AKfycbyDXnXouZzohSJO7JU3Xx4WVfbOmi1iznAFcdzmuzWwwA0gIssM6eKkCByCN4iusv5NoA/exec";
+let data = [];
+
+fetch(apiUrl)
+  .then(res => res.json())
+  .then(json => {
+    data = json;
+  });
+
+function displayResult(row) {
+  document.getElementById("result").innerHTML = `
+    <h3>${row.Client} – ${row.Projet}</h3>
+    <p><b>Type :</b> ${row.Type}</p>
+    <p><b>Intitulé :</b> ${row.Intitulé}</p>
+    <p><b>Taille :</b> ${row.Taille}</p>
+    <p><b>Matière :</b> ${row.Matière}</p>
+    <p><b>Quantité :</b> ${row.Quantité}</p>
+    <p><b>Finitions :</b> ${row.Finitions}</p>
+
+    <img src="${row['Lien JPG']}" alt="Aperçu">
+
+    <br><br>
+    <a href="${row['Lien dossier Drive']}" target="_blank">
+      <button>📂 Ouvrir le dossier</button>
+    </a>
+  `;
+}
 
 function searchCode(code) {
   if (!code) code = document.getElementById("codeInput").value.trim();
-  if (!code) return;
 
-  fetch(apiUrl + "?id=" + encodeURIComponent(code))
-    .then(res => res.json())
-    .then(data => {
-      if (data.error) {
-        document.getElementById("result").innerHTML =
-          "<p class='error'>❌ " + data.error + "</p>";
-        return;
-      }
-      displayResult(data);
-    })
-    .catch(() => {
-      document.getElementById("result").innerHTML =
-        "<p class='error'>Erreur de connexion</p>";
-    });
+  const row = data.find(r => String(r.ID) === String(code));
 
+  if (!row) {
+    document.getElementById("result").innerHTML = "❌ Code inconnu";
+    return;
+  }
+
+  displayResult(row);
   document.getElementById("codeInput").value = "";
   document.getElementById("codeInput").focus();
 }
 
-function displayResult(d) {
-  document.getElementById("result").innerHTML = `
-    <h3>${d.client} – ${d.projet}</h3>
-
-    ${d.image ? `<img src="${d.image}">` : ""}
-
-    <p><b>Type :</b> ${d.type}</p>
-    <p><b>Intitulé :</b> ${d.intitule}</p>
-    <p><b>Taille :</b> ${d.taille}</p>
-    <p><b>Matière :</b> ${d.matiere}</p>
-    <p><b>Quantité :</b> ${d.quantite}</p>
-    <p><b>Finitions :</b> ${d.finitions}</p>
-    <p><b>Date :</b> ${d.date}</p>
-
-    ${d.drive ? `
-      <a href="${d.drive}" target="_blank">
-        <button>📂 Ouvrir le dossier</button>
-      </a>
-    ` : ""}
-  `;
-}
-
-// Entrée clavier (zapette)
+// Zapette
 document.getElementById("codeInput").addEventListener("keydown", e => {
   if (e.key === "Enter") searchCode();
 });
 
-// Caméra (mobile)
+// Caméra
 if (/iPhone|Android/i.test(navigator.userAgent)) {
   new Html5Qrcode("reader").start(
     { facingMode: "environment" },
     {
       fps: 5,
-      qrbox: { width: 250, height: 120 }
+      qrbox: { width: 300, height: 120 },
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ]
     },
     searchCode
   );
 }
 </script>
-
-</body>
-</html>
