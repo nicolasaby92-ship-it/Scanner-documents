@@ -1,59 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Consultation documents</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+input { font-size: 18px; padding: 10px; width: 80%; max-width: 320px; }
+button { font-size: 16px; padding: 8px 15px; margin-top: 10px; }
+.box { border: 1px solid #ccc; padding: 15px; margin: 15px auto; max-width: 400px; }
+img { max-width: 100%; margin-top: 10px; display: block; }
+.error { color: red; font-weight: bold; }
+</style>
+</head>
+
+<body>
+
+<h2>📂 Consultation documents</h2>
+
+<div class="box">
+  <h3>⌨️ Scan clavier / zapette</h3>
+  <input id="codeInput" placeholder="Scanner ou entrer l’ID">
+  <br>
+  <button onclick="search()">Valider</button>
+</div>
+
+<div class="box">
+  <h3>📷 Scan caméra (mobile)</h3>
+  <div id="reader" style="width:300px;margin:auto;"></div>
+</div>
+
+<div id="result"></div>
+
 <script>
-const apiUrl = "https://script.google.com/macros/s/AKfycby6y9NXRNxN_8Tn6en3-wc26_ftnTBna9N3fwtZhu7lcwPUD1NP43ibnDDBczd0QuMKcA/exec";
-let data = [];
+const API_URL = "https://script.google.com/macros/s/AKfycbwF4LOsfLVSzBVU4mQBLah7e6CfACbb-Um1yJCPAEK1mmKlSKSHFhgoDHuO_rcFQRNDgQ/exec";
+let lastResult = null;
 
-fetch(apiUrl)
-  .then(res => res.json())
-  .then(json => {
-    data = json;
-  });
-
-function displayResult(row) {
-  document.getElementById("result").innerHTML = `
-    <h3>${row.Client} – ${row.Projet}</h3>
-    <p><b>Type :</b> ${row.Type}</p>
-    <p><b>Intitulé :</b> ${row.Intitulé}</p>
-    <p><b>Taille :</b> ${row.Taille}</p>
-    <p><b>Matière :</b> ${row.Matière}</p>
-    <p><b>Quantité :</b> ${row.Quantité}</p>
-    <p><b>Finitions :</b> ${row.Finitions}</p>
-
-    <img src="${row['Lien JPG']}" alt="Aperçu">
-
-    <br><br>
-    <a href="${row['Lien dossier Drive']}" target="_blank">
-      <button>📂 Ouvrir le dossier</button>
-    </a>
-  `;
-}
-
-function searchCode(code) {
+// Rechercher l'ID
+function search(code) {
   if (!code) code = document.getElementById("codeInput").value.trim();
+  if (!code) return;
 
-  const row = data.find(r => String(r.ID) === String(code));
+  fetch(API_URL + "?id=" + encodeURIComponent(code), { method: "GET", mode: "cors" })
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        document.getElementById("result").innerHTML = "<p class='error'>❌ " + data.error + "</p>";
+        return;
+      }
+      lastResult = data;
+      displayResult(data);
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById("result").innerHTML = "<p class='error'>❌ Erreur de connexion API</p>";
+    });
 
-  if (!row) {
-    document.getElementById("result").innerHTML = "❌ Code inconnu";
-    return;
-  }
-
-  displayResult(row);
   document.getElementById("codeInput").value = "";
   document.getElementById("codeInput").focus();
 }
 
-// Zapette
+// Affichage des infos
+function displayResult(d) {
+  document.getElementById("result").innerHTML = `
+    <h3>${d.client} – ${d.intitule}</h3>
+    <p><b>Projet :</b> ${d.projet}</p>
+    <p><b>Type :</b> ${d.type}</p>
+    <p><b>Taille :</b> ${d.taille}</p>
+    <p><b>Matière :</b> ${d.matiere}</p>
+    <p><b>Quantité :</b> ${d.quantite}</p>
+    <p><b>Finitions :</b> ${d.finitions}</p>
+    <p><b>Date de chargement :</b> ${d.date}</p>
+    <p><b>Dossier local :</b> ${d.dossier}</p>
+    ${d.image ? `<img src="${d.image}" alt="Visuel">` : ""}
+    ${d.driveLink ? `<br><a href="${d.driveLink}" target="_blank"><button>📂 Ouvrir le dossier Drive</button></a>` : ""}
+  `;
+}
+
+// Entrée clavier zapette
 document.getElementById("codeInput").addEventListener("keydown", e => {
-  if (e.key === "Enter") searchCode();
+  if (e.key === "Enter") search();
 });
 
-// Caméra
-if (/iPhone|Android/i.test(navigator.userAgent)) {
+// Scan caméra QR / code-barres mobile
+if (/Android|iPhone/i.test(navigator.userAgent)) {
   new Html5Qrcode("reader").start(
     { facingMode: "environment" },
     {
       fps: 5,
-      qrbox: { width: 300, height: 120 },
+      qrbox: { width: 250, height: 120 },
       formatsToSupport: [
         Html5QrcodeSupportedFormats.CODE_128,
         Html5QrcodeSupportedFormats.EAN_13,
@@ -61,7 +98,10 @@ if (/iPhone|Android/i.test(navigator.userAgent)) {
         Html5QrcodeSupportedFormats.QR_CODE
       ]
     },
-    searchCode
+    search
   );
 }
 </script>
+
+</body>
+</html>
