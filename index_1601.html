@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Application Scan + Projet Complet</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://unpkg.com/html5-qrcode"></script>
+<style>
+body { font-family: Arial,sans-serif; padding:20px; background:#f5f5f5; color:#333; }
+h1,h2,h3 { margin:0; }
+h1 { text-align:center; color:#004080; margin-bottom:20px; }
+input, button, select { font-size:16px; padding:8px; margin:5px 0; }
+button { cursor:pointer; }
+img { max-width:50px; border:1px solid #ccc; border-radius:4px; cursor:pointer; }
+table { width:100%; border-collapse: collapse; background:white; margin-bottom:20px; }
+th, td { border:1px solid #ddd; padding:8px; text-align:center; }
+th { background:#004080; color:white; }
+tr:hover { background:#e8f0fe; }
+.checkbox { width:18px; height:18px; }
+#projectModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); overflow:auto; z-index:9999; }
+#modalContent { background:#fff; margin:5% auto; padding:20px; width:90%; max-width:1200px; border-radius:8px; position:relative; }
+#closeModal { position:absolute; top:10px; right:15px; font-size:24px; cursor:pointer; }
+.section { margin-bottom:15px; }
+</style>
+</head>
+<body>
+
+<h1>📂 Consultation documents</h1>
+
+<!-- Partie principale : Scan ID et visuel -->
+<div>
+  <h2>Scan / ID</h2>
+  <input id="codeInput" placeholder="Scannez ou tapez l’ID">
+  <button onclick="searchCode()">Valider</button>
+  <div id="result" style="margin-top:15px;"></div>
+</div>
+
+<!-- Bouton pour ouvrir la modale projet complet -->
+<button id="openProjectView">📂 Aperçu projet complet</button>
+
+<!-- Fenêtre modale -->
+<div id="projectModal">
+  <div id="modalContent">
+    <span id="closeModal">&times;</span>
+    <h2>Vue projet complet</h2>
+    <input id="modalProjectInput" placeholder="Scannez ou tapez ID pour filtrer">
+    <div id="modalProjectContainer"></div>
+  </div>
+</div>
+
+<script>
+// ====== URL Google Sheet Apps Script ======
+const sheetURL = "https://script.google.com/macros/s/AKfycbyi18TGytIhAKRa0S0_uGSL9NAUMHjY301KLeRTFPEG5q5Mdru0pTb_xkPpFi5SgF_GVQ/exec";
+
+let projectData = [];
+
+// ===================== CHARGEMENT DONNÉES =====================
+async function loadData() {
+  try {
+    const res = await fetch(sheetURL);
+    projectData = await res.json();
+  } catch(e) {
+    console.error("Erreur fetch Sheet:", e);
+    alert("Impossible de charger les données. Vérifiez la connexion.");
+  }
+}
+
+// ===================== AFFICHAGE VISUEL SCAN =====================
+function displayResult(row){
+  document.getElementById("result").innerHTML = `
+    <h3>${row.intitule}</h3>
+    <p><b>Projet :</b> ${row.projet}</p>
+    <p><b>Type :</b> ${row.type}</p>
+    <p><b>Taille :</b> ${row.taille}</p>
+    <p><b>Matière :</b> ${row.matiere}</p>
+    <p><b>Quantité :</b> ${row.quantite}</p>
+    <p><b>Date chargement :</b> ${row.date}</p>
+    <img src="${row.jpg}"><br><br>
+    <a href="${row.pdf}" target="_blank"><button>📄 PDF</button></a>
+    <a href="${row.bat}" target="_blank"><button>📑 BAT</button></a>
+    <img src="${row.qr}" onclick="window.open('${row.qr}','_blank')">
+  `;
+}
+
+// ===================== RECHERCHE CODE =====================
+function searchCode(code){
+  if(!code) code = document.getElementById("codeInput").value.trim();
+  const row = projectData.find(r=>r.id===code);
+  if(!row){
+    document.getElementById("result").innerHTML="❌ Code inconnu";
+    return;
+  }
+  displayResult(row);
+  document.getElementById("codeInput").value="";
+}
+
+// ===================== MODALE =====================
+const modal = document.getElementById("projectModal");
+document.getElementById("openProjectView").addEventListener("click", ()=>{ modal.style.display="block"; renderModalTable(""); });
+document.getElementById("closeModal").addEventListener("click", ()=>{ modal.style.display="none"; });
+
+// ===================== MENUS DÉROULANTS + COULEUR =====================
+function createSelect(id, field, currentValue, options){
+  const select = document.createElement("select");
+  options.forEach(opt=>{
+    const o = document.createElement("option");
+    o.value = opt.value;
+    o.textContent = opt.label;
+    if(opt.value===currentValue) o.selected=true;
+    select.appendChild(o);
+  });
+  select.style.backgroundColor = getColor(currentValue);
+  select.addEventListener("change", async e=>{
+    const val = e.target.value;
+    e.target.style.backgroundColor = getColor(val);
+    await updateSheet(id, field, val);
+  });
+  return select;
+}
+
+function getColor(value){
+  switch(value){
+    case "Non validé": return "#f8d7da";
+    case "En cours": return "#fff3cd";
+    case "Validé": return "#d4edda";
+    case "Non lancé": return "#f8d7da";
+    case "Terminé": return "#d4edda";
+    case "Non commencé": return "#f8d7da";
+    case "Non livré": return "#f8d7da";
+    case "Partiel": return "#fff3cd";
+    case "Livré": return "#d4edda";
+    default: return "white";
+  }
+}
+
+// ===================== TABLEAU MODALE =====================
+function renderModalTable(filter=""){
+  const container=document.getElementById("modalProjectContainer");
+  container.innerHTML="";
+  let filtered = projectData.filter(r=>r.id===filter || r.projet.toLowerCase().includes(filter.toLowerCase()));
+
+  // regrouper
+  const grouped={};
+  filtered.forEach(r=>{
+    if(!grouped[r.projet]) grouped[r.projet]={};
+    if(!grouped[r.projet][r.intitule]) grouped[r.projet][r.intitule]=[];
+    grouped[r.projet][r.intitule].push(r);
+  });
+
+  for(const projet in grouped){
+    const section=document.createElement("div"); section.className="section";
+    const h2=document.createElement("h2"); h2.textContent=projet; section.appendChild(h2);
+
+    for(const intitule in grouped[projet]){
+      const subtitle=document.createElement("h3"); subtitle.textContent=intitule; section.appendChild(subtitle);
+
+      const table=document.createElement("table");
+      table.innerHTML=`<thead>
+        <tr>
+          <th>Nom fichier</th><th>PDF</th><th>JPG</th><th>BAT</th><th>QR</th>
+          <th>Réception</th><th>Validation</th><th>Impression</th><th>Atelier</th><th>Livraison</th>
+        </tr></thead>`;
+      const tbody=document.createElement("tbody");
+
+      const validationOptions = [{label:"Non validé", value:"Non validé"},{label:"En cours", value:"En cours"},{label:"Validé", value:"Validé"}];
+      const impressionOptions = [{label:"Non lancé", value:"Non lancé"},{label:"En cours", value:"En cours"},{label:"Terminé", value:"Terminé"}];
+      const atelierOptions = [{label:"Non commencé", value:"Non commencé"},{label:"En cours", value:"En cours"},{label:"Terminé", value:"Terminé"}];
+      const livraisonOptions = [{label:"Non livré", value:"Non livré"},{label:"Partiel", value:"Partiel"},{label:"Livré", value:"Livré"}];
+
+      grouped[projet][intitule].forEach(r=>{
+        const tr=document.createElement("tr");
+        tr.innerHTML=`
+          <td>${r.nomFichier}</td>
+          <td>${r.pdf?`<a href="${r.pdf}" target="_blank">PDF</a>`:""}</td>
+          <td>${r.jpg?`<img src="${r.jpg}" onclick="window.open('${r.jpg}','_blank')">`:""}</td>
+          <td>${r.bat?`<a href="${r.bat}" target="_blank">BAT</a>`:""}</td>
+          <td>${r.qr?`<img src="${r.qr}" onclick="window.open('${r.qr}','_blank')">`:""}</td>
+          <td><input type="checkbox" class="checkbox" ${r.reception?"checked":""} onchange="updateSheet('${r.id}','reception',this.checked)"></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        `;
+        tr.cells[6].appendChild(createSelect(r.id,"validation",r.validation,validationOptions));
+        tr.cells[7].appendChild(createSelect(r.id,"impression",r.impression,impressionOptions));
+        tr.cells[8].appendChild(createSelect(r.id,"atelier",r.atelier,atelierOptions));
+        tr.cells[9].appendChild(createSelect(r.id,"livraison",r.livraison,livraisonOptions));
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      section.appendChild(table);
+    }
+    container.appendChild(section);
+  }
+}
+
+// ===================== FILTRE MODALE =====================
+document.getElementById("modalProjectInput").addEventListener("keydown", e=>{
+  if(e.key==="Enter") renderModalTable(e.target.value.trim());
+});
+
+// ===================== UPDATE SHEET =====================
+async function updateSheet(id, field, value){
+  try{
+    await fetch(sheetURL, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({id,[field]:value})
+    });
+    await loadData();
+    renderModalTable(document.getElementById("modalProjectInput").value.trim());
+  }catch(e){ console.error("Erreur update Sheet:",e); alert("Erreur connexion Sheet"); }
+}
+
+// ===================== INIT =====================
+loadData();
+</script>
+
+</body>
+</html>
