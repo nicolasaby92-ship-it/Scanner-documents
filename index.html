@@ -2,180 +2,189 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Projet Complet</title>
+<title>Suivi Production</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  h2 { text-align: center; }
-  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-  th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-  th { background-color: #f4f4f4; }
-  input[type="checkbox"] { transform: scale(1.2); }
-  select { padding: 4px; }
-  .visuel { max-width: 120px; }
-  button { margin-top: 10px; padding: 6px 12px; font-size: 14px; }
+body {
+  font-family: Arial, sans-serif;
+  background:#f4f4f4;
+  padding:20px;
+}
+.box {
+  background:#fff;
+  padding:15px;
+  border-radius:8px;
+  max-width:520px;
+  margin:15px auto;
+}
+input {
+  width:95%;
+  padding:12px;
+  font-size:16px;
+}
+.step {
+  margin:6px 0;
+}
+.ok { color:green; }
+.todo { color:#888; }
+.hidden { display:none; }
+a { text-decoration:none; display:block; margin:6px 0; }
 </style>
 </head>
+
 <body>
 
-<h2>📊 Suivi complet du projet</h2>
+<h2>📦 Suivi de production</h2>
 
-<div>
-  <label for="projectID">Scanne ou saisis le QR/ID :</label>
-  <input type="text" id="projectID" placeholder="Entrez l'ID ici">
-  <button onclick="loadProject()">Afficher le projet</button>
+<div class="box">
+  <input id="codeInput" placeholder="Scanner ou taper le code">
 </div>
 
-<div id="projectTableContainer"></div>
+<div class="box hidden" id="projectBox">
+  <h3 id="projectTitle"></h3>
+  <p id="clientName"></p>
 
-<script>
-// URL de ton Google Sheet JSON (publication en CSV ou JSON via AppScript)
-const sheetURL = "https://script.google.com/macros/s/AKfycbyi18TGytIhAKRa0S0_uGSL9NAUMHjY301KLeRTFPEG5q5Mdru0pTb_xkPpFi5SgF_GVQ/exec";
-let projectData = [];
+  <!-- IMAGE PREVIEW -->
+  <img id="previewImage"
+       style="max-width:100%;margin-top:10px;border-radius:6px;
+              cursor:pointer;display:none;">
 
-// Récupération de toutes les données du Sheet
-fetch(sheetURL)
-.then(res => res.json())
-.then(data => {
-    projectData = data; // data doit être un tableau d'objets
-})
-.catch(err => console.error("Erreur récupération Sheet :", err));
+  <a id="folderLink" target="_blank">📁 Ouvrir le dossier Drive</a>
 
-// Fonction pour afficher le projet complet
-function loadProject() {
-    const id = document.getElementById("projectID").value.trim();
-    if (!id) return alert("Veuillez saisir un ID.");
-
-    // Filtrer les éléments correspondant au projet de l'ID scanné
-    const projectRows = projectData.filter(row => row.id === id);
-
-    if (!projectRows.length) {
-        document.getElementById("projectTableContainer").innerHTML = "❌ Projet introuvable";
-        return;
-    }
-
-    // Création du tableau HTML
-    let html = '<table><tr>';
-    html += "<th>Nom fichier</th><th>Visuel</th><th>PDF</th><th>JPG</th><th>QR</th><th>Reçu</th><th>Imprimé</th></tr>";
-
-    projectRows.forEach(row => {
-        html += "<tr>";
-        html += `<td>${row.intitule}</td>`;
-        html += `<td><img class="visuel" src="${row.jpgDrive}" alt="visuel"></td>`;
-        html += `<td><a href="${row.pdfDrive}" target="_blank">PDF</a></td>`;
-        html += `<td><a href="${row.jpgDrive}" target="_blank">JPG</a></td>`;
-        html += `<td><a href="${row.qrDrive}" target="_blank">QR</a></td>`;
-        html += `<td><input type="checkbox" ${row.recu ? "checked" : ""} onchange="updateSheet('${row.id}','recu',this.checked)"></td>`;
-        html += `<td><input type="checkbox" ${row.imprime ? "checked" : ""} onchange="updateSheet('${row.id}','imprime',this.checked)"></td>`;
-        html += "</tr>";
-    });
-
-    html += "</table>";
-    document.getElementById("projectTableContainer").innerHTML = html;
-}
-
-// Fonction pour mettre à jour le Sheet via POST AppScript
-function updateSheet(id, field, value) {
-    fetch(sheetURL, {
-        method: "POST",
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: id, field: field, value: value })
-    })
-    .then(res => res.json())
-    .then(res => console.log("Mise à jour OK :", res))
-    .catch(err => console.error("Erreur update Sheet :", err));
-}
-</script>
-
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<title>Projet Complet</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  h2 { text-align: center; }
-  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-  th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-  th { background-color: #f4f4f4; }
-  input[type="checkbox"] { transform: scale(1.2); }
-  select { padding: 4px; }
-  .visuel { max-width: 120px; }
-  button { margin-top: 10px; padding: 6px 12px; font-size: 14px; }
-</style>
-</head>
-<body>
-
-<h2>📊 Suivi complet du projet</h2>
-
-<div>
-  <label for="projectID">Scanne ou saisis le QR/ID :</label>
-  <input type="text" id="projectID" placeholder="Entrez l'ID ici">
-  <button onclick="loadProject()">Afficher le projet</button>
+  <h4>📌 Avancement</h4>
+  <div id="steps"></div>
 </div>
 
-<div id="projectTableContainer"></div>
+<div class="box">
+  <div id="reader"></div>
+</div>
+
+<!-- IMAGE PLEIN ÉCRAN -->
+<div id="imageModal"
+     style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+            background:rgba(0,0,0,0.9);z-index:9999;"
+     onclick="closeImage()">
+  <img id="modalImage"
+       style="max-width:95%;max-height:95%;margin:auto;display:block;
+              position:absolute;top:0;bottom:0;left:0;right:0;">
+</div>
 
 <script>
-// URL de ton Google Sheet JSON (publication en CSV ou JSON via AppScript)
-const sheetURL = "https://script.google.com/macros/s/AKfycbziwMzMRA4rrZApjzJ39sEI7NPXkGE1z0MODoUMqKOdp3z6El5p_c0u-D5IMJVNtw3SMQ/exec";
-let projectData = [];
+// ================= CONFIG =================
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSbYLrGQEm2zACNACmukjohMBGn3im1fS5SZD0jjCg6m7sd6iD3XIY22a6qRJcrDwHv-WqvLYwxCmR/pub?gid=0&single=true&output=csv";
+// =========================================
 
-// Récupération de toutes les données du Sheet
-fetch(sheetURL)
-.then(res => res.json())
-.then(data => {
-    projectData = data; // data doit être un tableau d'objets
-})
-.catch(err => console.error("Erreur récupération Sheet :", err));
+let rows = [];
+let currentRow = null;
 
-// Fonction pour afficher le projet complet
-function loadProject() {
-    const id = document.getElementById("projectID").value.trim();
-    if (!id) return alert("Veuillez saisir un ID.");
-
-    // Filtrer les éléments correspondant au projet de l'ID scanné
-    const projectRows = projectData.filter(row => row.id === id);
-
-    if (!projectRows.length) {
-        document.getElementById("projectTableContainer").innerHTML = "❌ Projet introuvable";
-        return;
-    }
-
-    // Création du tableau HTML
-    let html = '<table><tr>';
-    html += "<th>Nom fichier</th><th>Visuel</th><th>PDF</th><th>JPG</th><th>QR</th><th>Reçu</th><th>Imprimé</th></tr>";
-
-    projectRows.forEach(row => {
-        html += "<tr>";
-        html += `<td>${row.intitule}</td>`;
-        html += `<td><img class="visuel" src="${row.jpgDrive}" alt="visuel"></td>`;
-        html += `<td><a href="${row.pdfDrive}" target="_blank">PDF</a></td>`;
-        html += `<td><a href="${row.jpgDrive}" target="_blank">JPG</a></td>`;
-        html += `<td><a href="${row.qrDrive}" target="_blank">QR</a></td>`;
-        html += `<td><input type="checkbox" ${row.recu ? "checked" : ""} onchange="updateSheet('${row.id}','recu',this.checked)"></td>`;
-        html += `<td><input type="checkbox" ${row.imprime ? "checked" : ""} onchange="updateSheet('${row.id}','imprime',this.checked)"></td>`;
-        html += "</tr>";
-    });
-
-    html += "</table>";
-    document.getElementById("projectTableContainer").innerHTML = html;
+// 🔧 Nettoyage code (IMPORTANT)
+function clean(value) {
+  return String(value)
+    .replace(/"/g,"")
+    .replace(/\s+/g,"")
+    .trim();
 }
 
-// Fonction pour mettre à jour le Sheet via POST AppScript
-function updateSheet(id, field, value) {
-    fetch(sheetURL, {
-        method: "POST",
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: id, field: field, value: value })
-    })
-    .then(res => res.json())
-    .then(res => console.log("Mise à jour OK :", res))
-    .catch(err => console.error("Erreur update Sheet :", err));
+// 👤 Prénom (1 seule fois)
+let user = localStorage.getItem("prenom");
+if (!user) {
+  user = prompt("Quel est ton prénom ?");
+  localStorage.setItem("prenom", user);
 }
+
+// 📥 Chargement CSV
+fetch(CSV_URL + "&_=" + Date.now())
+  .then(r => r.text())
+  .then(text => {
+    const sep = text.includes(";") ? ";" : ",";
+    rows = text.trim().split("\n").slice(1).map(l =>
+      l.split(sep).map(c => c.trim())
+    );
+  });
+
+// 🔍 Recherche code
+function searchCode(value) {
+  const scanned = clean(value || codeInput.value);
+  const row = rows.find(r => clean(r[0]) === scanned);
+
+  if (!row) {
+    alert("❌ Code inconnu");
+    return;
+  }
+
+  currentRow = row;
+  display(row);
+  codeInput.value = "";
+}
+
+// ⌨️ Zapette / clavier
+codeInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") searchCode();
+});
+
+// 📄 Affichage projet
+function display(r) {
+  projectBox.classList.remove("hidden");
+
+  projectTitle.textContent = r[2];
+  clientName.textContent = "Client : " + r[1];
+  folderLink.href = r[3];
+
+  // 🖼️ Image
+  const img = document.getElementById("previewImage");
+  if (r[10]) {
+    img.src = r[10];
+    img.style.display = "block";
+    img.onclick = () => openImage(r[10]);
+  } else {
+    img.style.display = "none";
+  }
+
+  const stepsNames = [
+    "INTITULE",
+    "DIMENSSION",
+    "SUPPORT",
+    "QUANTITES",
+    "FINITION",
+    "POSE / LIVRAISON"
+  ];
+
+  steps.innerHTML = "";
+  stepsNames.forEach((n,i)=>{
+    const v = r[4+i];
+    steps.innerHTML += `
+      <div class="step ${v ? "ok":"todo"}">
+        ${n} : ${v || "⏳"}
+      </div>`;
+  });
+}
+
+// 🖼️ Plein écran image
+function openImage(src) {
+  modalImage.src = src;
+  imageModal.style.display = "block";
+}
+function closeImage() {
+  imageModal.style.display = "none";
+}
+
+// 📷 Caméra (1D + QR)
+new Html5Qrcode("reader").start(
+  { facingMode:"environment" },
+  {
+    fps:6,
+    qrbox:{ width:320, height:160 },
+    formatsToSupport:[
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ]
+  },
+  text => searchCode(text)
+);
 </script>
 
 </body>
