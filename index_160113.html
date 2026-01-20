@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>📂 Suivi dossiers</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f6f7f8;
+  padding: 20px;
+  text-align: center;
+}
+
+h2 { margin-bottom: 10px; }
+
+.box {
+  background: #fff;
+  padding: 15px;
+  margin: 15px auto;
+  max-width: 420px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+input {
+  font-size: 18px;
+  padding: 10px;
+  width: 90%;
+}
+
+button {
+  margin-top: 10px;
+  padding: 8px 14px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+img {
+  max-width: 240px;
+  margin-top: 10px;
+  border-radius: 4px;
+}
+
+.label {
+  text-align: left;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.value {
+  font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📦 Consultation dossier</h2>
+
+<div class="box">
+  <input id="codeInput" placeholder="Scanner ou saisir l’ID">
+  <br>
+  <button onclick="searchCode()">Valider</button>
+</div>
+
+<div class="box">
+  <div id="reader" style="width:300px;margin:auto;"></div>
+</div>
+
+<div class="box" id="result" style="display:none;"></div>
+
+<script>
+/* 🔗 URL CSV PUBLIÉE DU SHEET */
+const CSV_URL = "REMPLACE_ICI_PAR_TON_URL_CSV";
+
+/* Données chargées */
+let rows = [];
+
+/* Chargement du CSV */
+fetch(CSV_URL)
+  .then(r => r.text())
+  .then(text => {
+    const lines = text.trim().split("\n");
+    rows = lines.slice(1).map(l => l.split(","));
+  });
+
+/* Recherche */
+function searchCode(code) {
+  if (!code) code = document.getElementById("codeInput").value.trim();
+  if (!code) return;
+
+  const row = rows.find(r => r[0] === code);
+
+  if (!row) {
+    document.getElementById("result").style.display = "block";
+    document.getElementById("result").innerHTML = "❌ Code inconnu";
+    return;
+  }
+
+  display(row);
+  document.getElementById("codeInput").value = "";
+}
+
+/* Affichage */
+function display(r) {
+  document.getElementById("result").style.display = "block";
+
+  document.getElementById("result").innerHTML = `
+    <div class="label">Client</div><div class="value">${r[1]}</div>
+    <div class="label">Projet</div><div class="value">${r[2]}</div>
+    <div class="label">Type</div><div class="value">${r[3]}</div>
+    <div class="label">Intitulé</div><div class="value">${r[4]}</div>
+    <div class="label">Matière</div><div class="value">${r[5]}</div>
+    <div class="label">Taille</div><div class="value">${r[6]}</div>
+    <div class="label">Quantité</div><div class="value">${r[10]}</div>
+    <div class="label">Date</div><div class="value">${r[9]}</div>
+
+    <img src="${r[13]}" alt="Aperçu">
+
+    <br><br>
+    <a href="${r[12]}" target="_blank">
+      <button>📂 Ouvrir le dossier Drive</button>
+    </a>
+  `;
+}
+
+/* Entrée clavier */
+document.getElementById("codeInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") searchCode();
+});
+
+/* Scanner caméra */
+if (/iPhone|Android/i.test(navigator.userAgent)) {
+  new Html5Qrcode("reader").start(
+    { facingMode: "environment" },
+    { fps: 6, qrbox: 250 },
+    searchCode
+  );
+}
+</script>
+
+</body>
+</html>
