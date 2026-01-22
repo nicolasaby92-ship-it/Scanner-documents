@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Consultation documents</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+input { font-size: 18px; padding: 10px; width: 80%; max-width: 320px; }
+button { font-size: 16px; padding: 8px 15px; margin-top: 10px; }
+.box { border: 1px solid #ccc; padding: 15px; margin: 15px auto; max-width: 400px; }
+img { max-width: 100%; margin-top: 10px; display: block; }
+.error { color: red; font-weight: bold; }
+</style>
+</head>
+
+<body>
+
+<h2>📂 Consultation documents</h2>
+
+<div class="box">
+  <h3>⌨️ Scan clavier / zapette</h3>
+  <input id="codeInput" placeholder="Scanner ou entrer l’ID">
+  <br>
+  <button onclick="search()">Valider</button>
+</div>
+
+<div class="box">
+  <h3>📷 Scan caméra (mobile)</h3>
+  <div id="reader" style="width:300px;margin:auto;"></div>
+</div>
+
+<div id="result"></div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbxwx_UfBanfImck0ZFPvyV8fqvJiIs4Lq_QEoeNGplRd-wjuGVdmncpLxm93A9uB8LBiA/exec";
+let lastResult = null;
+
+// Rechercher l'ID
+function search(code) {
+  if (!code) code = document.getElementById("codeInput").value.trim();
+  if (!code) return;
+
+  fetch(API_URL + "?id=" + encodeURIComponent(code), { method: "GET", mode: "cors" })
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        document.getElementById("result").innerHTML = "<p class='error'>❌ " + data.error + "</p>";
+        return;
+      }
+      lastResult = data;
+      displayResult(data);
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById("result").innerHTML = "<p class='error'>❌ Erreur de connexion API</p>";
+    });
+
+  document.getElementById("codeInput").value = "";
+  document.getElementById("codeInput").focus();
+}
+
+// Affichage des infos
+function displayResult(d) {
+  document.getElementById("result").innerHTML = `
+    <h3>${d.client} – ${d.intitule}</h3>
+    <p><b>Projet :</b> ${d.projet}</p>
+    <p><b>Type :</b> ${d.type}</p>
+    <p><b>Taille :</b> ${d.taille}</p>
+    <p><b>Matière :</b> ${d.matiere}</p>
+    <p><b>Quantité :</b> ${d.quantite}</p>
+    <p><b>Finitions :</b> ${d.finitions}</p>
+    <p><b>Date de chargement :</b> ${d.date}</p>
+    <p><b>Dossier local :</b> ${d.dossier}</p>
+    ${d.image ? `<img src="${d.image}" alt="Visuel">` : ""}
+    ${d.driveLink ? `<br><a href="${d.driveLink}" target="_blank"><button>📂 Ouvrir le dossier Drive</button></a>` : ""}
+  `;
+}
+
+// Entrée clavier zapette
+document.getElementById("codeInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") search();
+});
+
+// Scan caméra QR / code-barres mobile
+if (/Android|iPhone/i.test(navigator.userAgent)) {
+  new Html5Qrcode("reader").start(
+    { facingMode: "environment" },
+    {
+      fps: 5,
+      qrbox: { width: 250, height: 120 },
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ]
+    },
+    search
+  );
+}
+</script>
+
+</body>
+</html>
