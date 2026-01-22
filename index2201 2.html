@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Suivi Projets</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body { font-family: Arial, sans-serif; background:#f4f4f4; padding:15px; }
+.box { background:#fff; padding:15px; border-radius:8px; margin-bottom:15px; }
+button { padding:10px; background:#000; color:#fff; border:none; border-radius:5px; }
+input { padding:10px; width:100%; margin:5px 0; }
+</style>
+</head>
+
+<body>
+
+<h2>📷 Scan QR / Code-barres</h2>
+
+<div class="box">
+  <div id="reader" style="width:300px"></div>
+  <p id="cameraStatus"></p>
+
+  <input id="manualCode" placeholder="Entrer le code manuellement">
+  <button onclick="manualScan()">Valider</button>
+</div>
+
+<div class="box" id="result" style="display:none"></div>
+
+<script>
+/* 🔴 REMPLACE CETTE URL */
+const API_URL = "https://script.google.com/macros/s/AKfycbxwx_UfBanfImck0ZFPvyV8fqvJiIs4Lq_QEoeNGplRd-wjuGVdmncpLxm93A9uB8LBiA/exec";
+
+/* ===================== */
+/* CAMERA                */
+/* ===================== */
+const statusEl = document.getElementById("cameraStatus");
+
+Html5Qrcode.getCameras().then(cameras => {
+  if (!cameras.length) {
+    statusEl.innerText = "❌ Aucune caméra détectée";
+    return;
+  }
+
+  statusEl.innerText = "✅ Caméra prête";
+
+  const qr = new Html5Qrcode("reader");
+  qr.start(
+    cameras[0].id,
+    { fps: 10, qrbox: 250 },
+    code => handleScan(code),
+    err => {}
+  );
+}).catch(err => {
+  statusEl.innerText = "❌ Autorisation caméra refusée";
+});
+
+/* ===================== */
+/* SCAN MANUEL           */
+/* ===================== */
+function manualScan() {
+  const code = document.getElementById("manualCode").value.trim();
+  if (!code) return alert("Code vide");
+  handleScan(code);
+}
+
+/* ===================== */
+/* TRAITEMENT CODE       */
+/* ===================== */
+function handleScan(code) {
+  fetch(API_URL + "?action=list")
+    .then(r => r.json())
+    .then(data => {
+      const item = data.find(r => r.id == code);
+      if (!item) {
+        alert("❌ Code inconnu");
+        return;
+      }
+
+      document.getElementById("result").style.display = "block";
+      document.getElementById("result").innerHTML = `
+        <b>Client :</b> ${item.client}<br>
+        <b>Projet :</b> ${item.projet}<br>
+        <b>Intitulé :</b> ${item.intitule}<br>
+        <b>Quantité :</b> ${item.quantite}
+      `;
+
+      fetch(API_URL, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ action:"scan", code })
+      });
+    })
+    .catch(() => alert("❌ Erreur API"));
+}
+</script>
+
+</body>
+</html>
