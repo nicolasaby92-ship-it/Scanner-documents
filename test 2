@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Scan QR / Code-barres</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Librairie scanner -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  padding: 15px;
+}
+.box {
+  background: #fff;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+button {
+  padding: 10px 15px;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+input {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+}
+#reader {
+  width: 300px;
+  margin: auto;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📷 Scan QR / Code-barres</h2>
+
+<div class="box">
+  <div id="reader"></div>
+  <p id="status">Initialisation caméra…</p>
+
+  <input id="manualCode" placeholder="Entrer le code manuellement">
+  <button onclick="manualScan()">Valider</button>
+</div>
+
+<div class="box" id="result" style="display:none"></div>
+
+<script>
+/* ============================= */
+/* 🔴 REMPLACE PAR TON URL /exec */
+/* ============================= */
+const API_URL = "https://script.google.com/macros/s/AKfycbxwx_UfBanfImck0ZFPvyV8fqvJiIs4Lq_QEoeNGplRd-wjuGVdmncpLxm93A9uB8LBiA/exec";
+
+/* ============================= */
+/* CAMERA                        */
+/* ============================= */
+const statusEl = document.getElementById("status");
+
+Html5Qrcode.getCameras()
+.then(cameras => {
+  if (!cameras || cameras.length === 0) {
+    statusEl.innerText = "❌ Aucune caméra détectée";
+    return;
+  }
+
+  statusEl.innerText = "✅ Caméra prête";
+
+  const html5QrCode = new Html5Qrcode("reader");
+
+  html5QrCode.start(
+    cameras[0].id,
+    { fps: 10, qrbox: 250 },
+    decodedText => {
+      html5QrCode.stop();
+      handleCode(decodedText);
+    }
+  );
+})
+.catch(err => {
+  statusEl.innerText = "❌ Autorisation caméra refusée";
+});
+
+/* ============================= */
+/* SAISIE MANUELLE               */
+/* ============================= */
+function manualScan() {
+  const code = document.getElementById("manualCode").value.trim();
+  if (!code) {
+    alert("Code vide");
+    return;
+  }
+  handleCode(code);
+}
+
+/* ============================= */
+/* TRAITEMENT DU CODE            */
+/* ============================= */
+function handleCode(code) {
+
+  fetch(API_URL + "?action=list")
+    .then(r => r.json())
+    .then(data => {
+
+      const item = data.find(row => row.id == code);
+
+      if (!item) {
+        alert("❌ Code inconnu");
+        return;
+      }
+
+      document.getElementById("result").style.display = "block";
+      document.getElementById("result").innerHTML = `
+        <h3>📄 Fiche</h3>
+        <b>ID :</b> ${item.id}<br>
+        <b>Client :</b> ${item.client}<br>
+        <b>Projet :</b> ${item.projet}<br>
+        <b>Intitulé :</b> ${item.intitule}<br>
+        <b>Quantité :</b> ${item.quantite}
+      `;
+
+      // Log scan
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "scan", code: code })
+      });
+
+    })
+    .catch(err => {
+      alert("❌ Erreur connexion API");
+      console.error(err);
+    });
+}
+</script>
+
+</body>
+</html>
