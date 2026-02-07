@@ -23,23 +23,38 @@
 <div>
   <label for="projectID">Scanne ou saisis le QR/ID :</label>
   <input type="text" id="projectID" placeholder="Entrez l'ID ici">
-  <button onclick="loadProject()">Afficher le projet</button>
+  <button id="loadProjectButton" onclick="loadProject()" disabled>Afficher le projet</button>
 </div>
 
+<p id="statusMessage" role="status" aria-live="polite"></p>
 <div id="projectTableContainer"></div>
 
 <script>
 // URL de ton Google Sheet JSON (publication en CSV ou JSON via AppScript)
-const sheetURL = "https://script.google.com/macros/s/AKfycbwbjGlIq2aLC1Prt4RErSiYZbV61B5nPsxRvvC7HVsKP78vUxSKuEMVSTjUnhrHrtLMFQ/exec";
+const sheetURL = "https://script.google.com/macros/s/AKfycbxyaXmpRSltTt7LQXyanTrwMrVXE9HxWX9lOZ41uyTrR2xCjmMSdd8AoNddFsRAVY2-DQ/exec";
 let projectData = [];
+const statusMessage = document.getElementById("statusMessage");
+const loadProjectButton = document.getElementById("loadProjectButton");
 
 // Récupération de toutes les données du Sheet
 fetch(sheetURL)
 .then(res => res.json())
 .then(data => {
     projectData = data; // data doit être un tableau d'objets
+    loadProjectButton.disabled = false;
+    statusMessage.textContent = "Données chargées. Vous pouvez saisir un ID.";
 })
-.catch(err => console.error("Erreur récupération Sheet :", err));
+.catch(err => {
+    console.error("Erreur récupération Sheet :", err);
+    statusMessage.textContent = "Erreur lors du chargement des données. Vérifiez l'accès au Google Sheet.";
+});
+
+function normalizeBoolean(value) {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value === 1;
+    if (typeof value === "string") return ["true", "1", "oui", "yes"].includes(value.toLowerCase());
+    return false;
+}
 
 // Fonction pour afficher le projet complet
 function loadProject() {
@@ -51,6 +66,7 @@ function loadProject() {
 
     if (!projectRows.length) {
         document.getElementById("projectTableContainer").innerHTML = "❌ Projet introuvable";
+        statusMessage.textContent = "Aucun projet correspondant à cet ID.";
         return;
     }
 
@@ -65,13 +81,14 @@ function loadProject() {
         html += `<td><a href="${row.pdfDrive}" target="_blank">PDF</a></td>`;
         html += `<td><a href="${row.jpgDrive}" target="_blank">JPG</a></td>`;
         html += `<td><a href="${row.qrDrive}" target="_blank">QR</a></td>`;
-        html += `<td><input type="checkbox" ${row.recu ? "checked" : ""} onchange="updateSheet('${row.id}','recu',this.checked)"></td>`;
-        html += `<td><input type="checkbox" ${row.imprime ? "checked" : ""} onchange="updateSheet('${row.id}','imprime',this.checked)"></td>`;
+        html += `<td><input type="checkbox" ${normalizeBoolean(row.recu) ? "checked" : ""} onchange="updateSheet('${row.id}','recu',this.checked)"></td>`;
+        html += `<td><input type="checkbox" ${normalizeBoolean(row.imprime) ? "checked" : ""} onchange="updateSheet('${row.id}','imprime',this.checked)"></td>`;
         html += "</tr>";
     });
 
     html += "</table>";
     document.getElementById("projectTableContainer").innerHTML = html;
+    statusMessage.textContent = `Projet chargé : ${projectRows.length} élément(s).`;
 }
 
 // Fonction pour mettre à jour le Sheet via POST AppScript
@@ -82,8 +99,14 @@ function updateSheet(id, field, value) {
         body: JSON.stringify({ id: id, field: field, value: value })
     })
     .then(res => res.json())
-    .then(res => console.log("Mise à jour OK :", res))
-    .catch(err => console.error("Erreur update Sheet :", err));
+    .then(res => {
+        console.log("Mise à jour OK :", res);
+        statusMessage.textContent = `Mise à jour "${field}" enregistrée.`;
+    })
+    .catch(err => {
+        console.error("Erreur update Sheet :", err);
+        statusMessage.textContent = "Erreur lors de la mise à jour du Google Sheet.";
+    });
 }
 </script>
 
