@@ -2,99 +2,189 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Consultation documents</title>
+<title>Suivi Production</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-input { font-size: 18px; padding: 10px; width: 80%; max-width: 320px; }
-button { font-size: 16px; padding: 8px 15px; margin-top: 10px; }
-.box { border: 1px solid #ccc; padding: 15px; margin: 15px auto; max-width: 400px; }
-img { max-width: 100%; margin-top: 10px; display: block; }
-.error { color: red; font-weight: bold; }
+body {
+  font-family: Arial, sans-serif;
+  background:#f4f4f4;
+  padding:20px;
+}
+.box {
+  background:#fff;
+  padding:15px;
+  border-radius:8px;
+  max-width:520px;
+  margin:15px auto;
+}
+input {
+  width:95%;
+  padding:12px;
+  font-size:16px;
+}
+.step {
+  margin:6px 0;
+}
+.ok { color:green; }
+.todo { color:#888; }
+.hidden { display:none; }
+a { text-decoration:none; display:block; margin:6px 0; }
 </style>
 </head>
 
 <body>
 
-<h2>📂 Consultation documents</h2>
+<h2>📦 Suivi de production</h2>
 
 <div class="box">
-  <h3>⌨️ Scan clavier / zapette</h3>
-  <input id="codeInput" placeholder="Scanner ou entrer l’ID">
-  <br>
-  <button onclick="search()">Valider</button>
+  <input id="codeInput" placeholder="Scanner ou taper le code">
+</div>
+
+<div class="box hidden" id="projectBox">
+  <h3 id="projectTitle"></h3>
+  <p id="clientName"></p>
+
+  <!-- IMAGE PREVIEW -->
+  <img id="previewImage"
+       style="max-width:100%;margin-top:10px;border-radius:6px;
+              cursor:pointer;display:none;">
+
+  <a id="folderLink" target="_blank">📁 Ouvrir le dossier Drive</a>
+
+  <h4>📌 Avancement</h4>
+  <div id="steps"></div>
 </div>
 
 <div class="box">
-  <h3>📷 Scan caméra</h3>
-  <div id="reader" style="width:300px;margin:auto;"></div>
+  <div id="reader"></div>
 </div>
 
-<div id="result"></div>
+<!-- IMAGE PLEIN ÉCRAN -->
+<div id="imageModal"
+     style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+            background:rgba(0,0,0,0.9);z-index:9999;"
+     onclick="closeImage()">
+  <img id="modalImage"
+       style="max-width:95%;max-height:95%;margin:auto;display:block;
+              position:absolute;top:0;bottom:0;left:0;right:0;">
+</div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbx_gOsnVHtu4gTtssjBb7ogsIhM_e_gBQPel3CmMAI4xqKPALuKnpRhZ3kGdqLL2nCUxA/exec";
+// ================= CONFIG =================
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSbYLrGQEm2zACNACmukjohMBGn3im1fS5SZD0jjCg6m7sd6iD3XIY22a6qRJcrDwHv-WqvLYwxCmR/pub?gid=0&single=true&output=csv";
+// =========================================
 
-fetch(API_URL + "?id=" + encodeURIComponent(code), {
-    method: "GET",
-    mode: "cors"
-})
-;
+let rows = [];
+let currentRow = null;
 
-// Fonction principale
-function search(code) {
-  if (!code) code = document.getElementById("codeInput").value.trim();
-  if (!code) return;
-
-  fetch(API_URL + "?id=" + encodeURIComponent(code), { method: "GET", mode: "cors" })
-    .then(res => res.json())
-    .then(data => {
-      if (data.error) {
-        document.getElementById("result").innerHTML = "<p class='error'>❌ " + data.error + "</p>";
-        return;
-      }
-      displayResult(data);
-    })
-    .catch(err => {
-      console.error(err);
-      document.getElementById("result").innerHTML = "<p class='error'>❌ Erreur de connexion API</p>";
-    });
-
-  document.getElementById("codeInput").value = "";
-  document.getElementById("codeInput").focus();
+// 🔧 Nettoyage code (IMPORTANT)
+function clean(value) {
+  return String(value)
+    .replace(/"/g,"")
+    .replace(/\s+/g,"")
+    .trim();
 }
 
-// Affichage des infos
-function displayResult(d) {
-  document.getElementById("result").innerHTML = `
-    <h3>${d.client} – ${d.intitule}</h3>
-    <p><b>Projet :</b> ${d.projet}</p>
-    <p><b>Type :</b> ${d.type}</p>
-    <p><b>Taille :</b> ${d.taille}</p>
-    <p><b>Matière :</b> ${d.matiere}</p>
-    <p><b>Quantité :</b> ${d.quantite}</p>
-    <p><b>Finitions :</b> ${d.finitions}</p>
-    <p><b>Date de chargement :</b> ${d.date}</p>
-    ${d.image ? `<img src="${d.image}" alt="Visuel">` : ""}
-    ${d.drive ? `<br><a href="${d.drive}" target="_blank"><button>📂 Ouvrir le dossier</button></a>` : ""}
-  `;
+// 👤 Prénom (1 seule fois)
+let user = localStorage.getItem("prenom");
+if (!user) {
+  user = prompt("Quel est ton prénom ?");
+  localStorage.setItem("prenom", user);
 }
 
-// Entrée clavier zapette
-document.getElementById("codeInput").addEventListener("keydown", e => {
-  if (e.key === "Enter") search();
+// 📥 Chargement CSV
+fetch(CSV_URL + "&_=" + Date.now())
+  .then(r => r.text())
+  .then(text => {
+    const sep = text.includes(";") ? ";" : ",";
+    rows = text.trim().split("\n").slice(1).map(l =>
+      l.split(sep).map(c => c.trim())
+    );
+  });
+
+// 🔍 Recherche code
+function searchCode(value) {
+  const scanned = clean(value || codeInput.value);
+  const row = rows.find(r => clean(r[0]) === scanned);
+
+  if (!row) {
+    alert("❌ Code inconnu");
+    return;
+  }
+
+  currentRow = row;
+  display(row);
+  codeInput.value = "";
+}
+
+// ⌨️ Zapette / clavier
+codeInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") searchCode();
 });
 
-// Scan caméra pour mobile
-if (/Android|iPhone/i.test(navigator.userAgent)) {
-  new Html5Qrcode("reader").start(
-    { facingMode: "environment" },
-    { fps: 5, qrbox: { width: 250, height: 120 } },
-    search
-  );
+// 📄 Affichage projet
+function display(r) {
+  projectBox.classList.remove("hidden");
+
+  projectTitle.textContent = r[2];
+  clientName.textContent = "Client : " + r[1];
+  folderLink.href = r[3];
+
+  // 🖼️ Image
+  const img = document.getElementById("previewImage");
+  if (r[10]) {
+    img.src = r[10];
+    img.style.display = "block";
+    img.onclick = () => openImage(r[10]);
+  } else {
+    img.style.display = "none";
+  }
+
+  const stepsNames = [
+    "INTITULE",
+    "DIMENSSION",
+    "SUPPORT",
+    "QUANTITES",
+    "FINITION",
+    "POSE / LIVRAISON"
+  ];
+
+  steps.innerHTML = "";
+  stepsNames.forEach((n,i)=>{
+    const v = r[4+i];
+    steps.innerHTML += `
+      <div class="step ${v ? "ok":"todo"}">
+        ${n} : ${v || "⏳"}
+      </div>`;
+  });
 }
+
+// 🖼️ Plein écran image
+function openImage(src) {
+  modalImage.src = src;
+  imageModal.style.display = "block";
+}
+function closeImage() {
+  imageModal.style.display = "none";
+}
+
+// 📷 Caméra (1D + QR)
+new Html5Qrcode("reader").start(
+  { facingMode:"environment" },
+  {
+    fps:6,
+    qrbox:{ width:320, height:160 },
+    formatsToSupport:[
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ]
+  },
+  text => searchCode(text)
+);
 </script>
 
 </body>
